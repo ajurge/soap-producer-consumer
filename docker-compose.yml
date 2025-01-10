@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  soap-consumer:
+    image: ${SOAP_CONSUMER_IMAGE}
+    container_name: soap-consumer
+    depends_on:
+      - soap-producer
+    ports:
+      - '8080:8080'
+    environment:
+      SOAP_PRODUCER_URL: soap-producer
+  soap-producer:
+    image: ${SOAP_PRODUCER_IMAGE}
+    container_name: soap-producer
+    ports:
+      - '8081:8081'

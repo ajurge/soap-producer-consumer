@@ -1,0 +1,194 @@
+import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
+
+buildscript {
+  ext {
+    springBootVersion = '3.4.1'
+    springCloudVersion = '2024.0.0'
+  }
+
+  dependencies {
+    classpath("org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}")
+    classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+  }
+}
+
+plugins {
+  id 'idea'
+
+  id 'java'
+
+  // OpenAPI Generator Plugin
+  // https://github.com/OpenAPITools/openapi-generator
+  id 'org.openapi.generator' version '7.10.0' apply false
+
+  // Produce git.properties for spring-boot-actuator
+  // https://plugins.gradle.org/plugin/com.gorylenko.gradle-git-properties
+  id 'com.gorylenko.gradle-git-properties' version '2.4.2' apply false
+
+  // Spring Boot Gradle Plugin
+  // https://plugins.gradle.org/plugin/org.springframework.boot
+  id 'org.springframework.boot' version "${springBootVersion}" apply false
+}
+
+ext.SPRINGBOOT_PROJECTS = filterProjects(['soap-consumer', 'soap-producer'] as String[])
+ext.OPENAPI_PROJECTS = filterProjects(['soap-consumer'] as String[])
+ext.dockerEnvFileName = 'docker.env'
+ext.dockerUserName = System.env.DOCKER_USERNAME
+
+private Set<Project> filterProjects(String[] projectNames) {
+  return subprojects.findAll { projectNames.contains(it.name) }
+}
+
+project.delete dockerEnvFileName
+
+allprojects {
+  group 'com.inion'
+  version '1.0.0'
+
+  apply plugin: 'java'
+
+  repositories {
+    mavenCentral()
+  }
+
+  idea {
+    module {
+      excludeDirs += file('bin')
+    }
+  }
+
+  setDockerImageVersion()
+}
+
+subprojects {
+  task listAllDependencies(type: DependencyReportTask) {}
+  task publish {
+    group = 'publish'
+  }
+  ext.dockerImageTag = project.name + '_' + dockerImageVersion
+  ext.dockerImageRepoAndTag = dockerUserName + '/' + rootProject.name + ':' + dockerImageTag
+
+  task writeDockerEnvFile() {
+    group = 'publish'
+
+    def envVarName = project.name.toUpperCase().replaceAll('-', '_') + '_IMAGE'
+    def fw = new FileWriter(dockerEnvFileName, true)
+    fw.append("\n${envVarName}=${dockerImageRepoAndTag}")
+    fw.close()
+  }
+}
+
+configure(ext.SPRINGBOOT_PROJECTS) { project ->
+  apply plugin: 'io.spring.dependency-management'
+  apply plugin: 'org.springframework.boot'
+  apply plugin: 'com.gorylenko.gradle-git-properties'
+
+  sourceCompatibility = 23
+  targetCompatibility = 23
+
+  dependencyManagement {
+    imports {
+      mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+      mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+    dependencies {
+      dependency('com.google.code.findbugs:jsr305:3.0.2')
+      dependency('com.google.code.findbugs:annotations:3.0.1')
+    }
+  }
+
+  sourceSets {
+    main {
+      java {
+        srcDir "${projectDir}/openapi/src/main/java"
+      }
+    }
+  }
+
+  dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.1'
+    implementation 'io.swagger.parser.v3:swagger-parser:2.1.24'
+    implementation 'com.google.guava:guava:33.4.0-jre'
+    implementation 'org.openapitools:jackson-databind-nullable:0.2.6'
+    implementation 'javax.annotation:javax.annotation-api:1.3.2'
+    implementation 'javax.validation:validation-api:2.0.1.Final'
+    compileOnly 'javax.servlet:javax.servlet-api:3.0.1'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.27'
+    implementation 'javax.xml.bind:jaxb-api:2.3.1'
+    testImplementation('org.springframework.boot:spring-boot-starter-test')
+  }
+
+  compileJava {
+    options.warnings = true
+    options.deprecation = true
+    options.annotationProcessorPath = configurations.annotationProcessor
+  }
+
+  compileTestJava {
+    options.warnings = true
+    options.deprecation = true
+    options.annotationProcessorPath = configurations.annotationProcessor
+  }
+
+  bootRun {
+    args = ['--spring.profiles.active=local']
+  }
+
+  bootBuildImage {
+    imageName = "${dockerImageRepoAndTag}"
+    publish = true
+    docker {
+      publishRegistry {
+        username = System.env.DOCKER_USERNAME
+        password = System.env.DOCKER_PASSWORD
+        url = System.env.DOCKER_URL // https://index.docker.io/v1/
+      }
+    }
+  }
+
+  test {
+    useJUnitPlatform()
+  }
+
+  publish.dependsOn([writeDockerEnvFile, bootBuildImage])
+}
+
+configure(ext.OPENAPI_PROJECTS) { project ->
+  apply from: "${rootDir}/gradle/openApi.gradle"
+  compileJava.dependsOn 'openApiGenerate'
+  tasks.openApiGenerate.dependsOn 'deleteGeneratedApi'
+}
+
+def setDockerImageVersion() {
+  ext.timestamp = new Date().format("yyyyMMdd_HHmmss", TimeZone.getTimeZone('UTC'))
+  def branchName = System.env.GIT_BRANCH ?: getCurrentBranch()
+  ext.branch = branchName.replace('origin/', '')
+  ext.commitId = getCurrentCommitId()
+  def dockerImageVersion =
+    project.version +
+      '_' + ext.branch +
+      '_' + ext.commitId +
+      '_' + ext.timestamp
+  ext.dockerImageVersion = dockerImageVersion.toLowerCase()
+}
+
+static def getCurrentBranch() {
+  def branch = InetAddress.localHost.hostName
+  def proc = "git rev-parse --abbrev-ref HEAD".execute()
+  proc.in.eachLine { line -> branch = line }
+  proc.err.eachLine { line -> println line }
+  proc.waitFor()
+  branch
+}
+
+static def getCurrentCommitId() {
+  def commitId = InetAddress.localHost.hostName
+  def proc = "git rev-parse --short HEAD".execute()
+  proc.in.eachLine { line -> commitId = line }
+  proc.err.eachLine { line -> println line }
+  proc.waitFor()
+  commitId
+}

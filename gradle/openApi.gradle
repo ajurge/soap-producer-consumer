@@ -1,0 +1,46 @@
+apply plugin: 'org.openapi.generator'
+
+openApiValidate {
+  inputSpec = "${rootDir}/openapi/schema.yaml".toString()
+}
+
+openApiGenerate {
+
+  generatorName = 'spring'
+  library = 'spring-boot'
+  inputSpec = "${rootDir}/openapi/schema.yaml".toString()
+  outputDir = "${projectDir}/openapi".toString()
+  globalProperties = [
+    modelDocs      : 'false',
+    models         : '',
+    apis           : '',
+    supportingFiles:  'ApiUtil.java'
+  ]
+  configOptions = [
+    useOptional          : 'true',
+    swaggerDocketConfig  : 'false',
+    performBeanValidation: 'false',
+    useBeanValidation    : 'false',
+    useTags              : 'true',
+    singleContentTypes   : 'true',
+    basePackage          : 'com.inion.api',
+    configPackage        : 'com.inion.api',
+    title                : rootProject.name,
+    java8                : 'false',
+    dateLibrary          : 'java8',
+    serializableModel    : 'true',
+    artifactId           : rootProject.name,
+    apiPackage           : 'com.inion.api',
+    modelPackage         : 'com.inion.api.model',
+    invokerPackage       : 'com.inion.api',
+    interfaceOnly        : 'true'
+  ]
+}
+
+task deleteGeneratedApi {
+  group 'openapi tools'
+
+  doLast {
+    project.delete "${projectDir}/openapi/src"
+  }
+}

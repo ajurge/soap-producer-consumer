@@ -1,0 +1,44 @@
+openapi: "3.0.0"
+servers:
+  - url: /api
+info:
+  version: 1.0.0
+  title: Countries API
+paths:
+  /countries:
+    summary: Get list of countries
+    get:
+      tags:
+        - Countries
+      summary: Get list of countries
+      operationId: getCountries
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountryList"
+components:
+  schemas:
+    CountryList:
+      type: array
+      items:
+        $ref: "#/components/schemas/Country"
+    Country:
+      required:
+        - capital
+        - currency
+      properties:
+        name:
+          type: string
+        population:
+          type: integer
+        capital:
+          type: string
+        currency:
+          type: string
+          enum:
+            - GBP
+            - EUR
+            - PLN

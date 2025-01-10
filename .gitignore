@@ -1,0 +1,21 @@
+### Local developer / local build settings
+application-local-override.properties
+docker.env
+
+## Gradle
+bin/
+build/
+.gradle/
+soap-consumer/src/generated/
+out/
+
+## IntelliJ IDEA
+*.iml
+*.iws
+.idea/
+
+## Files, that should never be ignored
+!**/.gitkeep
+!**/.gitignore
+!**/.gitattributes
+!**/.editorconfig
