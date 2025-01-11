@@ -1,6 +1,6 @@
 # Build and Run
 
-- Java 23
+- JDK 23
 - docker
 
 Set the following environmental variables:
