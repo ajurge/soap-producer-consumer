@@ -6,13 +6,15 @@ docker.env
 bin/
 build/
 .gradle/
-soap-consumer/src/generated/
 out/
 
 ## IntelliJ IDEA
 *.iml
 *.iws
 .idea/
+
+## Open API generated files
+*/openapi
 
 ## Files, that should never be ignored
 !**/.gitkeep

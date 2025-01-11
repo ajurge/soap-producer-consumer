@@ -5,7 +5,6 @@ openApiValidate {
 }
 
 openApiGenerate {
-
   generatorName = 'spring'
   library = 'spring-boot'
   inputSpec = "${rootDir}/openapi/schema.yaml".toString()
@@ -14,7 +13,7 @@ openApiGenerate {
     modelDocs      : 'false',
     models         : '',
     apis           : '',
-    supportingFiles:  'ApiUtil.java'
+    supportingFiles: 'ApiUtil.java'
   ]
   configOptions = [
     useOptional          : 'true',
