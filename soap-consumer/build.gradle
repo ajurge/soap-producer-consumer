@@ -37,7 +37,6 @@ sourceSets {
 compileJava {
   dependsOn wsimport
 }
-// end::wsdl[]
 
 dependencies {
   implementation ('org.springframework.boot:spring-boot-starter-web-services') {
